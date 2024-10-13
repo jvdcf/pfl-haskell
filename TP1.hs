@@ -4,6 +4,8 @@
 
 -- PFL 2024/2025 Practical assignment 1
 
+main = undefined
+
 -- Uncomment the some/all of the first three lines to import the modules, do not change the code of these lines.
 
 type City = String
