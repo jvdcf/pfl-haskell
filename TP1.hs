@@ -41,7 +41,7 @@ adjacent rm c = sinks ++ sources
         sources = [(s, d) | (s, t, d) <- rm, t == c]
 
 pathDistance :: RoadMap -> Path -> Maybe Distance
-pathDistance = undefined
+pathDistance
 
 rome :: RoadMap -> [City]
 rome = undefined
