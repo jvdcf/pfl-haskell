@@ -7,7 +7,7 @@ import qualified Data.Bits
    Licenciatura em Engenharia Informática e Computação
    António Mário da Silva Marcos Florido (Regente e professor das aulas práticas)
 
-   Grupo T02_GXX
+   Grupo T02_G08
    - Guilherme Duarte Silva Matos (up202208755@up.pt)
    - João Vítor da Costa Ferreira (up202208393@up.pt)
  -}
@@ -24,16 +24,21 @@ type RoadMap = [(City,City,Distance)] -- Adjacency list
 
 cities :: RoadMap -> [City]
 cities rm = rmDupl ([ s | (s, _, _) <- rm] ++ [ t | (_, t, _) <- rm])
-    where rmDupl = map head . Data.List.group . Data.List.sort
+  where rmDupl = map head . Data.List.group . Data.List.sort
 
 areAdjacent :: RoadMap -> City -> City -> Bool
-areAdjacent = undefined
+areAdjacent rm c1 c2 = length finds > 0
+  where finds = [ True | (s, t, d) <- rm, s == c1, t == c2]
 
 distance :: RoadMap -> City -> City -> Maybe Distance
-distance = undefined
+distance rm c1 c2 | length finds > 0 = Just (head finds)
+                  | otherwise = Nothing
+                  where finds = [ d | (s, t, d) <- rm, s == c1, t == c2]
 
 adjacent :: RoadMap -> City -> [(City,Distance)]
-adjacent = undefined
+adjacent rm c = sinks ++ sources
+  where sinks = [(t, d) | (s, t, d) <- rm, s == c]
+        sources = [(s, d) | (s, t, d) <- rm, t == c]
 
 pathDistance :: RoadMap -> Path -> Maybe Distance
 pathDistance = undefined
@@ -44,9 +49,11 @@ rome = undefined
 isStronglyConnected :: RoadMap -> Bool
 isStronglyConnected = undefined
 
+-- Dikstra
 shortestPath :: RoadMap -> City -> City -> [Path]
 shortestPath = undefined
 
+-- Programação dinâmica
 travelSales :: RoadMap -> Path
 travelSales = undefined
 
