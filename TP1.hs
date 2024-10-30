@@ -19,7 +19,7 @@ type Path = [City]  -- A list of nodes representing a path
 type Distance = Int -- Weight of an edge
 
 -- An adjacency list representation of the edges in a undirected and weighted graph
-type RoadMap = [(City,City,Distance)] 
+type RoadMap = [(City,City,Distance)]
 
 -- Project convention --------------------------------------
 
@@ -65,7 +65,10 @@ pathDistance rm (s:t:ps) =
 {- Returns the names of the cities with the highest number of roads connecting to them (i.e. the vertices with the highest degree). -}
 rome :: RoadMap -> [City]
 rome [] = []
-rome rm = undefined -- TODO
+rome rm = filter f (cities rm)
+  where f c = degree c == maxDegree rm
+        maxDegree rm = maximum [ degree c | c <- cities rm]
+        degree c = length (adjacent rm c)
 
 {- Returns a boolean indicating whether all the cities in the graph are connected in the roadmap (i.e., if every city is reachable from every other city). -}
 isStronglyConnected :: RoadMap -> Bool
