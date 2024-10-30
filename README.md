@@ -4,7 +4,7 @@ Programação Funcional e em Lógica (L.EIC024) 2024/2025
 Licenciatura em Engenharia Informática e Computação  
 António Mário da Silva Marcos Florido (Regente e professor das aulas práticas)
 
-**Grupo T02_GXX**
+**Grupo T02_G08**
 
 - Guilherme Duarte Silva Matos (up202208755@up.pt)
 - João Vítor da Costa Ferreira (up202208393@up.pt)
