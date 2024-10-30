@@ -1,6 +1,7 @@
 import qualified Data.List
 import qualified Data.Array
 import qualified Data.Bits
+import Debug.Trace
 
 {- TP1: Haskell Coursework
    Programação Funcional e em Lógica (L.EIC024) 2024/2025
@@ -73,7 +74,13 @@ rome rm = filter f (cities rm)
 {- Returns a boolean indicating whether all the cities in the graph are connected in the roadmap (i.e., if every city is reachable from every other city). -}
 isStronglyConnected :: RoadMap -> Bool
 isStronglyConnected [] = False
-isStronglyConnected rm = undefined -- TODO
+isStronglyConnected rm = length (dfsVisit rm startCity) == length (cities rm)
+  where startCity = "0"
+        dfsVisit rm c | cityNotBelongs = [c]
+                      | otherwise      = c : dfsVisit subsetRoadMap nextCity
+          where cityNotBelongs = c `notElem` cities rm
+                subsetRoadMap  = filter (\(s, t, d) -> s /= c && t /= c) rm
+                nextCity       = fst $ head $ adjacent rm c
 
 {- Computes all shortest paths connecting the two cities given as input. Note that there may be more than one path with the same total distance. If there are no paths between the input cities, then return an empty list. Note that the (only) shortest path between a city c and itself is [c]. -}
 shortestPath :: RoadMap -> City -> City -> [Path]
