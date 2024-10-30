@@ -1,4 +1,3 @@
-module TP1 where
 import qualified Data.List
 import qualified Data.Array
 import qualified Data.Bits
