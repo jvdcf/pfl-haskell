@@ -24,6 +24,22 @@ type Distance = Int -- Weight of an edge
 -- An adjacency list representation of the edges in a undirected and weighted graph
 type RoadMap = [(City,City,Distance)]
 
+-- A priority queue implemented as a binary heap
+data Heap a = Nil | Node a (Heap a) (Heap a) deriving (Show)
+
+heapPush :: Ord a => a -> Heap a -> Heap a
+heapPush x Nil = Node x Nil Nil
+heapPush x (Node n l r) 
+  | x < n  = Node n (heapPush x l) r
+  | x == n = Node n l r
+  | x > n  = Node n l (heapPush x r)
+
+heapPop :: Ord a => Heap a -> (a, Heap a)
+heapPop Nil = error "Empty heap"
+heapPop (Node n Nil r) = (n, r)
+heapPop (Node n l r) = (min, Node n l' r)
+  where (min, l') = heapPop l
+
 
 
 -- Project convention ---------------------------------------------------------------------------
