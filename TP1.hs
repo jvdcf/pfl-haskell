@@ -25,6 +25,7 @@ type Distance = Int -- Weight of an edge
 type RoadMap = [(City,City,Distance)]
 
 
+
 -- Project convention ---------------------------------------------------------------------------
 
 -- s  -> Source node/city
@@ -86,7 +87,7 @@ rome rm = filter f (cities rm)
 isStronglyConnected :: RoadMap -> Bool
 isStronglyConnected [] = False
 isStronglyConnected rm = length (dfsVisit rm startCity) == length (cities rm)
-  where startCity = "0"
+  where startCity = head (cities rm)
         dfsVisit rm c | cityNotBelongs = [c]
                       | otherwise      = c : dfsVisit subsetRoadMap nextCity
           where cityNotBelongs = c `notElem` cities rm
