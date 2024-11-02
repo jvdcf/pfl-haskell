@@ -55,7 +55,7 @@ distance :: RoadMap -> City -> City -> Maybe Distance
 distance rm c1 c2 
   | not (null finds) = Just (head finds)
   | otherwise = Nothing
-                  where finds = [ d | (s, t, d) <- rm, s == c1, t == c2]
+    where finds = [ d | (s, t, d) <- rm, (s == c1 && t == c2) || (s == c2 && t == c1)]
 
 
 {- Returns the cities adjacent to a particular city (i.e. cities with a direct edge between them) and the respective distances to them. -}
@@ -102,10 +102,45 @@ fromJust :: Maybe a -> a
 fromJust (Just a) = a
 fromJust Nothing = error "Nothing"
 
+data AuxDistance = Finite Distance | Infinite deriving (Eq, Show)
+
+instance Ord AuxDistance where
+  compare :: AuxDistance -> AuxDistance -> Ordering
+  Infinite `compare` Infinite = EQ
+  Infinite `compare` _ = GT
+  _ `compare` Infinite = LT
+  Finite d1 `compare` Finite d2 = d1 `compare` d2
+
+instance Num AuxDistance where
+  (+) :: AuxDistance -> AuxDistance -> AuxDistance
+  Infinite + _ = Infinite
+  _ + Infinite = Infinite
+  Finite d1 + Finite d2 = Finite (d1 + d2)
+
+  (*) :: AuxDistance -> AuxDistance -> AuxDistance
+  Infinite * _ = Infinite
+  _ * Infinite = Infinite
+  Finite d1 * Finite d2 = Finite (d1 * d2)
+
+  abs :: AuxDistance -> AuxDistance
+  abs Infinite = Infinite
+  abs (Finite d) = Finite (abs d)
+
+  signum :: AuxDistance -> AuxDistance
+  signum Infinite = 1
+  signum (Finite d) = Finite (signum d)
+
+  fromInteger :: Integer -> AuxDistance
+  fromInteger = Finite . fromInteger
+
+  negate :: AuxDistance -> AuxDistance
+  negate Infinite = Infinite
+  negate (Finite d) = Finite (negate d)
+
 type State = [CityState]
 data CityState = CityState {
   city :: City,
-  dist :: Maybe Distance,
+  dist :: AuxDistance,
   prev :: [City],
   isVisited :: Bool
 } deriving (Show)
@@ -124,19 +159,19 @@ sUpdate (s:r) cs
   | otherwise = s : sUpdate r cs
 
 -- Values inside the Heap
-type UnvisitedCity = (Distance, City)
+type UnvisitedCity = (AuxDistance, City)
 
 -- Priority Queue (TODO: Switch implementation to a binary heap)
 type PriorityQueue = [UnvisitedCity]
 
 pqPresent :: PriorityQueue -> City -> Bool
 pqPresent [] _ = False
-pqPresent (q:qs) c 
+pqPresent (q:qs) c
   | snd q == c = True
   | otherwise = pqPresent qs c
 
 pqPush :: PriorityQueue -> UnvisitedCity -> PriorityQueue
-pqPush queue city 
+pqPush queue city
   | pqPresent queue (snd city) = error "pqPush: City already present"
   | otherwise = Data.List.sort (queue ++ [city])
 
@@ -153,15 +188,15 @@ pqPop queue
 pqEmpty :: PriorityQueue -> Bool
 pqEmpty = null
 
-pqSearch :: PriorityQueue -> City -> Maybe Distance
+pqSearch :: PriorityQueue -> City -> Maybe UnvisitedCity
 pqSearch [] c = trace ("pqSearch: City " ++ show c ++ "not found") Nothing
-pqSearch (x:xs) c 
-  | snd x == c = Just (fst x)
+pqSearch (x:xs) c
+  | snd x == c = Just x
   | otherwise = pqSearch xs c
 
 pqRemove :: PriorityQueue -> City -> PriorityQueue
 pqRemove [] _ = error "pqRemove: City not found"
-pqRemove (x:xs) c 
+pqRemove (x:xs) c
   | snd x == c = xs
   | otherwise = x : pqRemove xs c
 
@@ -173,35 +208,40 @@ dijkstra :: RoadMap -> City -> State -> PriorityQueue -> State
 dijkstra rm dest state queue
   | pqEmpty queue = state
   -- | dest == snd (pqTop queue) = state
-  | otherwise = 
+  | otherwise =
     let
       (d, c) = pqTop queue
       poppedQueue = pqPop queue
-      visitedState = sUpdate state (CityState c (Just d) [] True)
+      visitedState = sUpdate state (CityState c d [] True)
       adjacentCities = [fst a | a <- adjacent rm c, not (isVisited (sSearch visitedState (fst a)))]
-      (newQueue, newState) = trace (show c ++ " adj: " ++ show adjacentCities) relax rm visitedState poppedQueue c adjacentCities
-    in dijkstra rm dest newState newQueue
+      (newQueue, newState) = relax rm visitedState poppedQueue c adjacentCities
+      debug = trace ("dijkstra: " ++ show newState ++ "\nqueue: " ++ show newQueue)
+    in debug dijkstra rm dest newState newQueue
 
 relax :: RoadMap -> State -> PriorityQueue -> City -> [City] -> (PriorityQueue, State)
-relax _ state queue _ [] = trace "s" (queue, state)
-relax rm state queue u (v:rest) 
-  | distVS > newDist = trace "y" relax rm newState newQueue u rest
-  | otherwise = trace "o" relax rm state queue u rest
+relax _ state queue _ [] = trace ("relax: adj empty") (queue, state)
+relax rm state queue u (v:rest)
+  | distVS >= newDist = debug2 relax rm newState newQueue u rest
+  | otherwise = debug3 relax rm state queue u rest
   where
+    debug2 = trace ("relax: dist v >= dist u + dist u-v") debug
+    debug3 = trace ("relax: dist v < dist u + dist u-v") debug
+    debug = trace ("state: " ++ show state ++ "\nqueue: " ++ show queue ++ "\ncity: " ++ show u ++ "\nadj: " ++ show v)
     us = sSearch state u
-    vs = trace (show $ sSearch state v) sSearch state v
-    distVS = case dist vs of
-      Just d -> d
-      Nothing -> maxBound
-    newDist = fromJust (dist us) + fromJust (distance rm u v)
-    newState = sUpdate state (CityState v (Just newDist) [u] False)
+    vs = sSearch state v
+    distVS = dist vs
+    newDist = case distance rm u v of
+      Just d -> dist us + Finite d
+      Nothing -> Infinite
+    newState = trace ("newDist: " ++ show newDist) sUpdate state (CityState v newDist [u] False)
     newQueue = pqUpdate queue (newDist, v)
 
 shortestPath :: RoadMap -> City -> City -> State
 shortestPath rm s t = dijkstra rm t initState initQueue
-  where initState = [CityState c (if c == s then Just 0 else Nothing) [] False | c <- cities rm]
-        initQueue = foldl pqPush [] [(if c == s then 0 else maxBound, c) | c <- cities rm]
-        
+  where
+    initState = [CityState c (if c == s then 0 else Infinite) [] False | c <- cities rm]
+    initQueue = foldl pqPush [] [(if c == s then 0 else Infinite, c) | c <- cities rm]
+
 
 
 {- Given a roadmap, returns a solution of the Traveling Salesman Problem (TSP): visit each city exactly once and come back to the starting town in the route whose total distance is minimum. Any optimal TSP path will be accepted and the function only needs to return one of them, so the starting city (which is also the ending city) is left to be chosen by each group. If the graph does not have a TSP path, then return an empty list. -}
@@ -228,6 +268,9 @@ gTest2 = [("0","1",10),("0","2",15),("0","3",20),("1","2",35),("1","3",25),("2",
 
 gTest3 :: RoadMap -- unconnected graph
 gTest3 = [("0","1",4),("2","3",2)]
+
+gTemp1 :: RoadMap -- various shortest paths between 0 and 3
+gTemp1 = [("0","1",5),("0","2",5),("0","3",10),("1","2",99),("1","3",5),("2","3",5)]
 
 main :: IO()
 main = undefined
