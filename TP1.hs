@@ -236,8 +236,15 @@ relax rm state queue u (v:rest)
     newState = trace ("newDist: " ++ show newDist) sUpdate state (CityState v newDist [u] False)
     newQueue = pqUpdate queue (newDist, v)
 
-shortestPath :: RoadMap -> City -> City -> State
-shortestPath rm s t = dijkstra rm t initState initQueue
+generatePaths :: City -> State -> Path -> [Path]
+generatePaths c state acc
+  | dist cs == Infinite = []
+  | dist cs == Finite 0 = [c:acc]
+  | otherwise = concat [ generatePaths p state (c:acc) | p <- prev cs]
+  where cs = sSearch state c
+
+shortestPath :: RoadMap -> City -> City -> [Path]
+shortestPath rm s t = generatePaths t (dijkstra rm t initState initQueue) []
   where
     initState = [CityState c (if c == s then 0 else Infinite) [] False | c <- cities rm]
     initQueue = foldl pqPush [] [(if c == s then 0 else Infinite, c) | c <- cities rm]
