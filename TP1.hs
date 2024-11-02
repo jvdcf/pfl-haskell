@@ -46,14 +46,15 @@ cities rm = rmDupl ([ s | (s, _, _) <- rm] ++ [ t | (_, t, _) <- rm])
 
 {- Returns a boolean indicating whether two cities are linked directly. -}
 areAdjacent :: RoadMap -> City -> City -> Bool
-areAdjacent rm c1 c2 = length finds > 0
-  where finds = [ True | (s, t, d) <- rm, s == c1, t == c2]
+areAdjacent rm c1 c2 = not (null finds)
+  where finds = [ True | (s, t, d) <- rm, (s == c1 && t == c2) || (s == c2 && t == c1)]
 
 
 {- Returns a Just value with the distance between two cities connected directly, given two city names, and Nothing otherwise. -}
 distance :: RoadMap -> City -> City -> Maybe Distance
-distance rm c1 c2 | length finds > 0 = Just (head finds)
-                  | otherwise = Nothing
+distance rm c1 c2 
+  | not (null finds) = Just (head finds)
+  | otherwise = Nothing
                   where finds = [ d | (s, t, d) <- rm, s == c1, t == c2]
 
 
