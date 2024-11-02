@@ -71,10 +71,12 @@ The implementation uses two auxiliary data structures:
 ## Implementação de `travelSales`
 
 Dynamic Programming:
-$$
-c_{i,0} = w_{i,n}                                 i \neq n
-c_{i,S} = min_{j \in S} [w_{i,j} + c_{j, S\\{j}}] i \neq n, i \notin S
-$$
+```math
+c_{i,\emptyset} = w_{i,n} \quad i \neq n
+```
+```math
+c_{i,S} = min_{j \in S} [w_{i,j} + c_{j, S\\{j}}] \quad i \neq n, i \notin S
+```
 
 ```
     table(roadMap, lastIndex, mask, path):
