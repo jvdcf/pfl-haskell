@@ -98,10 +98,7 @@ isStronglyConnected rm = length (dfsVisit rm startCity) == length (cities rm)
 
 {- Computes all shortest paths connecting the two cities given as input. Note that there may be more than one path with the same total distance. If there are no paths between the input cities, then return an empty list. Note that the (only) shortest path between a city c and itself is [c]. -}
 
-fromJust :: Maybe a -> a
-fromJust (Just a) = a
-fromJust Nothing = error "Nothing"
-
+-- Auxiliary representation of distance to allow for infinite values
 data AuxDistance = Finite Distance | Infinite deriving (Eq, Show)
 
 instance Ord AuxDistance where
@@ -137,19 +134,24 @@ instance Num AuxDistance where
   negate Infinite = Infinite
   negate (Finite d) = Finite (negate d)
 
+-- The state of the Dijkstra algorithm in a given step
 type State = [CityState]
+
+-- The state of a city in the Dijkstra algorithm
 data CityState = CityState {
-  city :: City,
-  dist :: AuxDistance,
-  prev :: [City],
-  isVisited :: Bool
+  city :: City,           -- The respective city
+  dist :: AuxDistance,    -- Distance to the city from the source
+  prev :: [City],         -- Previous nodes in the shortest path
+  isVisited :: Bool       -- Whether the city has been analyzed or not in the algorithm
 } deriving (Show)
 
+-- Search for a given city in the state
 sSearch :: State -> City -> CityState
 sSearch [] _ = error "sSearch: City not found"
 sSearch (s:r) c | city s == c = s
                 | otherwise = sSearch r c
 
+-- Return a new state with the city updated
 sUpdate :: State -> CityState -> State
 sUpdate [] cs = error "sUpdate: City not found"
 sUpdate (s:r) cs
@@ -158,56 +160,70 @@ sUpdate (s:r) cs
   | city cs == city s && dist cs > dist s = s : r
   | otherwise = s : sUpdate r cs
 
--- Values inside the Heap
+-- A city that has not been yet analyzed and its distance to the source
 type UnvisitedCity = (AuxDistance, City)
 
--- Priority Queue (TODO: Switch implementation to a binary heap)
+-- Priority Queue implemented as a list of unvisited cities
 type PriorityQueue = [UnvisitedCity]
 
+-- Check if a city is inside the queue
 pqPresent :: PriorityQueue -> City -> Bool
 pqPresent [] _ = False
 pqPresent (q:qs) c
   | snd q == c = True
   | otherwise = pqPresent qs c
 
+-- Push a new city into the queue
 pqPush :: PriorityQueue -> UnvisitedCity -> PriorityQueue
 pqPush queue city
   | pqPresent queue (snd city) = error "pqPush: City already present"
   | otherwise = Data.List.sort (queue ++ [city])
 
+-- Get the city with the smallest distance to the source
 pqTop :: PriorityQueue -> UnvisitedCity
 pqTop queue
   | pqEmpty queue = error "pqTop: Empty queue"
   | otherwise = head queue
 
+-- Remove the city with the smallest distance to the source
 pqPop :: PriorityQueue -> PriorityQueue
 pqPop queue
   | pqEmpty queue = error "pqPop: Empty queue"
   | otherwise = tail queue
 
+-- Check if the queue is empty
 pqEmpty :: PriorityQueue -> Bool
 pqEmpty = null
 
+-- Search for a city in the queue
 pqSearch :: PriorityQueue -> City -> Maybe UnvisitedCity
 pqSearch [] c = trace ("pqSearch: City " ++ show c ++ "not found") Nothing
 pqSearch (x:xs) c
   | snd x == c = Just x
   | otherwise = pqSearch xs c
 
+-- Remove a specific city from the queue
 pqRemove :: PriorityQueue -> City -> PriorityQueue
 pqRemove [] _ = error "pqRemove: City not found"
 pqRemove (x:xs) c
   | snd x == c = xs
   | otherwise = x : pqRemove xs c
 
+-- Update the distance of a city already in the queue
 pqUpdate :: PriorityQueue -> UnvisitedCity -> PriorityQueue
 pqUpdate [] _ = error "pqUpdate: City not found"
 pqUpdate (x:xs) (d, c) = pqPush (pqRemove (x:xs) c) (d, c)
 
+{- Dijkstra algorithm (RoadMap, City destination, Initial state, Initial priority queue) -> Updated State
+   While the queue is not empty:
+    - Pop the city with the smallest distance to the source from the queue;
+    - Mark the city as visited;
+    - "Relax" all the unvisited adjacent edges. 
+   *The initial state and initial priority queue must have the source city with distance 0 and all the other cities with infinite distance (as well as every city marked as unvisited and every previous lists empty).
+-}
 dijkstra :: RoadMap -> City -> State -> PriorityQueue -> State
 dijkstra rm dest state queue
   | pqEmpty queue = state
-  -- | dest == snd (pqTop queue) = state
   | otherwise =
     let
       (d, c) = pqTop queue
@@ -215,27 +231,34 @@ dijkstra rm dest state queue
       visitedState = sUpdate state (CityState c d [] True)
       adjacentCities = [fst a | a <- adjacent rm c, not (isVisited (sSearch visitedState (fst a)))]
       (newQueue, newState) = relax rm visitedState poppedQueue c adjacentCities
-      debug = trace ("dijkstra: " ++ show newState ++ "\nqueue: " ++ show newQueue)
-    in debug dijkstra rm dest newState newQueue
+    in dijkstra rm dest newState newQueue
 
+{- Relax operation in the Dijkstra algorithm (RoadMap, State, PriorityQueue, Source city, Adjacent cities) -> (Updated PriorityQueue, Updated State)
+   Being:
+    - u the city being analyzed;
+    - v the adjacent city;
+    - dist <city> the distance from source;
+    - distance <city> <city> the direct distance between the two cities.
+   If dist v > dist u + distance u v, then update dist v to the new distance and add u to the previous list of v.
+-}
 relax :: RoadMap -> State -> PriorityQueue -> City -> [City] -> (PriorityQueue, State)
-relax _ state queue _ [] = trace ("relax: adj empty") (queue, state)
+relax _ state queue _ [] = (queue, state)
 relax rm state queue u (v:rest)
-  | distVS >= newDist = debug2 relax rm newState newQueue u rest
-  | otherwise = debug3 relax rm state queue u rest
+  | distVS >= newDist = relax rm newState newQueue u rest
+  | otherwise = relax rm state queue u rest
   where
-    debug2 = trace ("relax: dist v >= dist u + dist u-v") debug
-    debug3 = trace ("relax: dist v < dist u + dist u-v") debug
-    debug = trace ("state: " ++ show state ++ "\nqueue: " ++ show queue ++ "\ncity: " ++ show u ++ "\nadj: " ++ show v)
     us = sSearch state u
     vs = sSearch state v
     distVS = dist vs
     newDist = case distance rm u v of
       Just d -> dist us + Finite d
       Nothing -> Infinite
-    newState = trace ("newDist: " ++ show newDist) sUpdate state (CityState v newDist [u] False)
+    newState = sUpdate state (CityState v newDist [u] False)
     newQueue = pqUpdate queue (newDist, v)
 
+{- Generate all shortest paths between two cities (Destination city, State, Accumulated path) -> [Paths]
+   This auxiliary functions transforms the final state of the Dijkstra algorithm into a list of paths.
+-}
 generatePaths :: City -> State -> Path -> [Path]
 generatePaths c state acc
   | dist cs == Infinite = []
@@ -243,6 +266,7 @@ generatePaths c state acc
   | otherwise = concat [ generatePaths p state (c:acc) | p <- prev cs]
   where cs = sSearch state c
 
+-- The function itself
 shortestPath :: RoadMap -> City -> City -> [Path]
 shortestPath rm s t = generatePaths t (dijkstra rm t initState initQueue) []
   where
