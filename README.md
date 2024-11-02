@@ -33,11 +33,40 @@ António Mário da Silva Marcos Florido (Regente e professor das aulas práticas
 
 ## Implementação de `shortestPath`
 
-// TODO
+The `shortestPath` function was implemented using the **Dijkstra's** algorithm to find the shortest path between two cities in a roadmap.
+Below is the pseudocode of the algorithm used in the implementation:
 
-> Explanation of how the shortestPath function was implemented, includ-
-> ing a justification of why certain auxiliary data structures were selected
-> and used, and a description of the algorithm(s) used.
+```plaintext
+shortestPath(roadmap, city1, city2):
+    Mark all nodes as unvisited
+    Initialize all the distances to infinity
+    Set the distance to the starting node to 0
+    Create a priority queue `q` and insert all the nodes with their distances
+    While `q` is not empty:
+        Pop the node `u` with the smallest distance from `q`
+        Mark `u` as visited
+        For each unvisited neighbor `v` of `u`:
+            relax(roadmap, u, v)
+
+relax(roadmap, u, v):
+    distU = distance from the starting node to `u`
+    distV = distance from the starting node to `v`
+    weight = distance between `u` and `v`
+    If distV >= distU + weight:
+        Set the distance of `v` to distU + weight
+        Set the previous node of `v` to `u`
+```
+
+The implementation uses two auxiliary data structures:
+
+- A priority queue to store the node yet to be processed, ordered by the distance from the starting node. Implemented using a list of tuples with linear time search;
+
+  > It is worth mentioning that the priority queue could be implemented using a binary heap with logarithmic access times to improve the time complexity of the algorithm, at the cost of simplicity.
+
+- A list (with linear access time) of auxiliary variables for each city to store:
+  - The distance from the starting node;
+  - A list of the previous nodes to reconstruct the path;
+  - If the node was already processed.
 
 ## Implementação de `travelSales`
 
