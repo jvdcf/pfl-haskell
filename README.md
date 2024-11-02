@@ -26,10 +26,10 @@ António Mário da Silva Marcos Florido (Regente e professor das aulas práticas
 > percentages adding up to 100%) and a brief description the tasks each one
 > performed.
 
-| Membro          | %   | Descrição das tarefas |
-| --------------- | --- | --------------------- |
-| Guilherme Matos | XX% | // TODO               |
-| João Ferreira   | XX% | // TODO               |
+| Member          | %   | Task Assignment                                                                                                                                     |
+| --------------- | --- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Guilherme Matos | 45% | Warning fixing relating to the usage of `head`, streamlining the code, auxiliary functions, `cities`, `rome`, `isStronglyConnected`, `travelSales`  |
+| João Ferreira   | 55% | `adjacent`, `areAdjacent`, `distance`, `pathDistance`, `dijkstra`, priority queue implementation, project testing                                   |
 
 ## Implementação de `shortestPath`
 
@@ -70,6 +70,18 @@ The implementation uses two auxiliary data structures:
 
 ## Implementação de `travelSales`
 
-// TODO
+Dynamic Programming:
+$$
+c_{i,0} = w_{i,n}                                 i \neq n
+c_{i,S} = min_{j \in S} [w_{i,j} + c_{j, S\\{j}}] i \neq n, i \notin S
+$$
 
-> A similar section to the previous one for the travelSales function.
+```
+    table(roadMap, lastIndex, mask, path):
+        This function represents the dynamic programming table of two dimensions, of size (n-1, 2^n -1), leveraging Haskell's memoization of function calls.
+        This function is the tool that calculates the cost and path of the TSP problem.
+
+    travelSales(roadMap): 
+        This function calls table, solving the TSP. It uses the roadMap to calculate all the other arguments for the table function.
+    
+```
