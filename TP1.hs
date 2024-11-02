@@ -1,7 +1,6 @@
 import qualified Data.List
 import qualified Data.Array
 import qualified Data.Bits
-import Debug.Trace ( trace )
 
 {- TP1: Haskell Coursework
    Programação Funcional e em Lógica (L.EIC024) 2024/2025
@@ -197,7 +196,7 @@ pqEmpty = null
 
 -- Search for a city in the queue
 pqSearch :: PriorityQueue -> City -> Maybe UnvisitedCity
-pqSearch [] c = trace ("pqSearch: City " ++ show c ++ "not found") Nothing
+pqSearch [] c = Nothing
 pqSearch (x:xs) c
   | snd x == c = Just x
   | otherwise = pqSearch xs c
