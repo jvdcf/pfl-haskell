@@ -97,25 +97,30 @@ isStronglyConnected rm = length (dfsVisit rm startCity) == length (cities rm)
 
 {- Computes all shortest paths connecting the two cities given as input. Note that there may be more than one path with the same total distance. If there are no paths between the input cities, then return an empty list. Note that the (only) shortest path between a city c and itself is [c]. -}
 
--- Struct for the result of the Dijkstra's algorithm for a given city
+fromJust :: Maybe a -> a
+fromJust (Just a) = a
+fromJust Nothing = error "Nothing"
+
 type State = [CityState]
 data CityState = CityState {
   city :: City,
-  dist :: Distance,
-  prev :: [City]
-}
+  dist :: Maybe Distance,
+  prev :: [City],
+  isVisited :: Bool
+} deriving (Show)
 
-sSearch :: State -> City -> Maybe CityState
-sSearch [] _ = Nothing
-sSearch (s:r) c | city s == c = Just s
+sSearch :: State -> City -> CityState
+sSearch [] _ = error "sSearch: City not found"
+sSearch (s:r) c | city s == c = s
                 | otherwise = sSearch r c
 
-sUpdate :: State -> City -> Distance -> City -> State
-sUpdate (s:r) c d p
-  | c == city s && d == dist s = CityState c d (p : prev s) : r
-  | c == city s && d < dist s = CityState c d [p] : r
-  | c == city s && d > dist s = s : r
-  | otherwise = s : sUpdate r c d p
+sUpdate :: State -> CityState -> State
+sUpdate [] cs = error "sUpdate: City not found"
+sUpdate (s:r) cs
+  | city cs == city s && dist cs == dist s = CityState (city cs) (dist cs) (prev cs ++ prev s) (isVisited cs) : r
+  | city cs == city s && dist cs < dist s = cs : r
+  | city cs == city s && dist cs > dist s = s : r
+  | otherwise = s : sUpdate r cs
 
 -- Values inside the Heap
 type UnvisitedCity = (Distance, City)
@@ -123,70 +128,79 @@ type UnvisitedCity = (Distance, City)
 -- Priority Queue (TODO: Switch implementation to a binary heap)
 type PriorityQueue = [UnvisitedCity]
 
+pqPresent :: PriorityQueue -> City -> Bool
+pqPresent [] _ = False
+pqPresent (q:qs) c 
+  | snd q == c = True
+  | otherwise = pqPresent qs c
+
 pqPush :: PriorityQueue -> UnvisitedCity -> PriorityQueue
-pqPush queue city = Data.List.sort (queue ++ [city])
+pqPush queue city 
+  | pqPresent queue (snd city) = error "pqPush: City already present"
+  | otherwise = Data.List.sort (queue ++ [city])
 
 pqTop :: PriorityQueue -> UnvisitedCity
-pqTop = head
+pqTop queue
+  | pqEmpty queue = error "pqTop: Empty queue"
+  | otherwise = head queue
 
 pqPop :: PriorityQueue -> PriorityQueue
-pqPop = tail
+pqPop queue
+  | pqEmpty queue = error "pqPop: Empty queue"
+  | otherwise = tail queue
 
 pqEmpty :: PriorityQueue -> Bool
 pqEmpty = null
 
-pqSearch :: PriorityQueue -> City -> Distance
-pqSearch [] _ = maxBound
-pqSearch (x:xs) c | snd x == c = fst x
-                  | otherwise = pqSearch xs c
+pqSearch :: PriorityQueue -> City -> Maybe Distance
+pqSearch [] c = trace ("pqSearch: City " ++ show c ++ "not found") Nothing
+pqSearch (x:xs) c 
+  | snd x == c = Just (fst x)
+  | otherwise = pqSearch xs c
 
 pqRemove :: PriorityQueue -> City -> PriorityQueue
-pqRemove [] _ = []
-pqRemove (x:xs) c | snd x == c = xs
-                  | otherwise = x : pqRemove xs c
+pqRemove [] _ = error "pqRemove: City not found"
+pqRemove (x:xs) c 
+  | snd x == c = xs
+  | otherwise = x : pqRemove xs c
 
 pqUpdate :: PriorityQueue -> UnvisitedCity -> PriorityQueue
-pqUpdate [] _ = []
+pqUpdate [] _ = error "pqUpdate: City not found"
 pqUpdate (x:xs) (d, c) = pqPush (pqRemove (x:xs) c) (d, c)
 
--- Dijkstra's algorithm (TODO: CRITICAL BUG: Infinite loop)
-dijkstra :: RoadMap -> State -> PriorityQueue -> State
-dijkstra rm state queue
+dijkstra :: RoadMap -> City -> State -> PriorityQueue -> State
+dijkstra rm dest state queue
   | pqEmpty queue = state
-  | otherwise = dijkstra rm newState newHeap
-    where
-      (newState, newHeap) = relax rm state queue thisCity adjacents
-      thisCity = snd $ pqTop queue
-      adjacents = [ t | (t, _) <- adjacent rm thisCity]
+  -- | dest == snd (pqTop queue) = state
+  | otherwise = 
+    let
+      (d, c) = pqTop queue
+      poppedQueue = pqPop queue
+      visitedState = sUpdate state (CityState c (Just d) [] True)
+      adjacentCities = [fst a | a <- adjacent rm c, not (isVisited (sSearch visitedState (fst a)))]
+      (newQueue, newState) = trace (show c ++ " adj: " ++ show adjacentCities) relax rm visitedState poppedQueue c adjacentCities
+    in dijkstra rm dest newState newQueue
 
-relax :: RoadMap -> State -> PriorityQueue -> City -> [City] -> (State, PriorityQueue)
-relax _  state queue _ []     = (state, queue)
-relax rm state queue s (t:ts)
-  | tDist > sDist + d = relax rm newState newQueue s ts
-  | otherwise = relax rm state queue s ts
+relax :: RoadMap -> State -> PriorityQueue -> City -> [City] -> (PriorityQueue, State)
+relax _ state queue _ [] = trace "s" (queue, state)
+relax rm state queue u (v:rest) 
+  | distVS > newDist = trace "y" relax rm newState newQueue u rest
+  | otherwise = trace "o" relax rm state queue u rest
   where
-    tDist = pqSearch queue t
-    sDist = pqSearch queue s
-    d = case distance rm s t of
-      Just d' -> d'
+    us = sSearch state u
+    vs = trace (show $ sSearch state v) sSearch state v
+    distVS = case dist vs of
+      Just d -> d
       Nothing -> maxBound
-    newState = sUpdate state t (sDist + d) s
-    newQueue = pqUpdate queue (sDist + d, t)
+    newDist = fromJust (dist us) + fromJust (distance rm u v)
+    newState = sUpdate state (CityState v (Just newDist) [u] False)
+    newQueue = pqUpdate queue (newDist, v)
 
--- Generate the optimal paths from the result of the Dijkstra's algorithm
-generatePath :: State -> City -> [Path]
-generatePath state c = 
-  case sSearch state c of
-    Just s -> generatePath state (head $ prev s) ++ [[city s]]
-    Nothing -> []
-
--- The function itself
-shortestPath :: RoadMap -> City -> City -> [Path]
-shortestPath [] _ _ = []
-shortestPath _ c1 c2 | c1 == c2 = [[c1]]
-shortestPath rm c1 c2 = generatePath (dijkstra rm initState initHeap) c2
-  where initState = [ CityState c (if c == c1 then 0 else maxBound) [] | c <- cities rm]
-        initHeap = Data.List.foldl pqPush [] [ (if c == c1 then 0 else maxBound, c) | c <- cities rm]
+shortestPath :: RoadMap -> City -> City -> State
+shortestPath rm s t = dijkstra rm t initState initQueue
+  where initState = [CityState c (if c == s then Just 0 else Nothing) [] False | c <- cities rm]
+        initQueue = foldl pqPush [] [(if c == s then 0 else maxBound, c) | c <- cities rm]
+        
 
 
 {- Given a roadmap, returns a solution of the Traveling Salesman Problem (TSP): visit each city exactly once and come back to the starting town in the route whose total distance is minimum. Any optimal TSP path will be accepted and the function only needs to return one of them, so the starting city (which is also the ending city) is left to be chosen by each group. If the graph does not have a TSP path, then return an empty list. -}
