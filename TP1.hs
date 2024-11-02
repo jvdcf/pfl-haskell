@@ -1,6 +1,8 @@
-import Data.Array qualified
-import Data.Bits qualified
-import Data.List qualified
+
+import qualified Data.List
+import qualified Data.Array
+import qualified Data.Bits
+
 
 {- TP1: Haskell Coursework
    Programação Funcional e em Lógica (L.EIC024) 2024/2025
@@ -44,7 +46,6 @@ areAdjacent rm c1 c2 = not $ null finds
     finds = [True | (s, t, d) <- rm, (s == c1 && t == c2) || (s == c2 && t == c1)]
 
 {- Returns a Just value with the distance between two cities connected directly, given two city names, and Nothing otherwise. -}
-
 maybeHead :: [a] -> Maybe a
 maybeHead [] = Nothing
 maybeHead (x : _) = Just x
@@ -98,10 +99,182 @@ isStronglyConnected rm = fromJust $ startCity >>= \s -> Just $ length (dfsVisit 
         nextCity = fromJust $ (maybeHead $ adjacent rm c) >>= \x -> Just $ fst x
 
 {- Computes all shortest paths connecting the two cities given as input. Note that there may be more than one path with the same total distance. If there are no paths between the input cities, then return an empty list. Note that the (only) shortest path between a city c and itself is [c]. -}
+
+-- Auxiliary representation of distance to allow for infinite values
+data AuxDistance = Finite Distance | Infinite deriving (Eq, Show)
+
+instance Ord AuxDistance where
+  compare :: AuxDistance -> AuxDistance -> Ordering
+  Infinite `compare` Infinite = EQ
+  Infinite `compare` _ = GT
+  _ `compare` Infinite = LT
+  Finite d1 `compare` Finite d2 = d1 `compare` d2
+
+instance Num AuxDistance where
+  (+) :: AuxDistance -> AuxDistance -> AuxDistance
+  Infinite + _ = Infinite
+  _ + Infinite = Infinite
+  Finite d1 + Finite d2 = Finite (d1 + d2)
+
+  (*) :: AuxDistance -> AuxDistance -> AuxDistance
+  Infinite * _ = Infinite
+  _ * Infinite = Infinite
+  Finite d1 * Finite d2 = Finite (d1 * d2)
+
+  abs :: AuxDistance -> AuxDistance
+  abs Infinite = Infinite
+  abs (Finite d) = Finite (abs d)
+
+  signum :: AuxDistance -> AuxDistance
+  signum Infinite = 1
+  signum (Finite d) = Finite (signum d)
+
+  fromInteger :: Integer -> AuxDistance
+  fromInteger = Finite . fromInteger
+
+  negate :: AuxDistance -> AuxDistance
+  negate Infinite = Infinite
+  negate (Finite d) = Finite (negate d)
+
+-- The state of the Dijkstra algorithm in a given step
+type State = [CityState]
+
+-- The state of a city in the Dijkstra algorithm
+data CityState = CityState {
+  city :: City,           -- The respective city
+  dist :: AuxDistance,    -- Distance to the city from the source
+  prev :: [City],         -- Previous nodes in the shortest path
+  isVisited :: Bool       -- Whether the city has been analyzed or not in the algorithm
+} deriving (Show)
+
+-- Search for a given city in the state
+sSearch :: State -> City -> CityState
+sSearch [] _ = error "sSearch: City not found"
+sSearch (s:r) c | city s == c = s
+                | otherwise = sSearch r c
+
+-- Return a new state with the city updated
+sUpdate :: State -> CityState -> State
+sUpdate [] cs = error "sUpdate: City not found"
+sUpdate (s:r) cs
+  | city cs == city s && dist cs == dist s = CityState (city cs) (dist cs) (prev cs ++ prev s) (isVisited cs) : r
+  | city cs == city s && dist cs < dist s = cs : r
+  | city cs == city s && dist cs > dist s = s : r
+  | otherwise = s : sUpdate r cs
+
+-- A city that has not been yet analyzed and its distance to the source
+type UnvisitedCity = (AuxDistance, City)
+
+-- Priority Queue implemented as a list of unvisited cities
+type PriorityQueue = [UnvisitedCity]
+
+-- Check if a city is inside the queue
+pqPresent :: PriorityQueue -> City -> Bool
+pqPresent [] _ = False
+pqPresent (q:qs) c
+  | snd q == c = True
+  | otherwise = pqPresent qs c
+
+-- Push a new city into the queue
+pqPush :: PriorityQueue -> UnvisitedCity -> PriorityQueue
+pqPush queue city
+  | pqPresent queue (snd city) = error "pqPush: City already present"
+  | otherwise = Data.List.sort (queue ++ [city])
+
+-- Get the city with the smallest distance to the source
+pqTop :: PriorityQueue -> UnvisitedCity
+pqTop queue
+  | pqEmpty queue = error "pqTop: Empty queue"
+  | otherwise = head queue
+
+-- Remove the city with the smallest distance to the source
+pqPop :: PriorityQueue -> PriorityQueue
+pqPop queue
+  | pqEmpty queue = error "pqPop: Empty queue"
+  | otherwise = tail queue
+
+-- Check if the queue is empty
+pqEmpty :: PriorityQueue -> Bool
+pqEmpty = null
+
+-- Search for a city in the queue
+pqSearch :: PriorityQueue -> City -> Maybe UnvisitedCity
+pqSearch [] c = Nothing
+pqSearch (x:xs) c
+  | snd x == c = Just x
+  | otherwise = pqSearch xs c
+
+-- Remove a specific city from the queue
+pqRemove :: PriorityQueue -> City -> PriorityQueue
+pqRemove [] _ = error "pqRemove: City not found"
+pqRemove (x:xs) c
+  | snd x == c = xs
+  | otherwise = x : pqRemove xs c
+
+-- Update the distance of a city already in the queue
+pqUpdate :: PriorityQueue -> UnvisitedCity -> PriorityQueue
+pqUpdate [] _ = error "pqUpdate: City not found"
+pqUpdate (x:xs) (d, c) = pqPush (pqRemove (x:xs) c) (d, c)
+
+{- Dijkstra algorithm (RoadMap, City destination, Initial state, Initial priority queue) -> Updated State
+   While the queue is not empty:
+    - Pop the city with the smallest distance to the source from the queue;
+    - Mark the city as visited;
+    - "Relax" all the unvisited adjacent edges. 
+   *The initial state and initial priority queue must have the source city with distance 0 and all the other cities with infinite distance (as well as every city marked as unvisited and every previous lists empty).
+-}
+dijkstra :: RoadMap -> City -> State -> PriorityQueue -> State
+dijkstra rm dest state queue
+  | pqEmpty queue = state
+  | otherwise =
+    let
+      (d, c) = pqTop queue
+      poppedQueue = pqPop queue
+      visitedState = sUpdate state (CityState c d [] True)
+      adjacentCities = [fst a | a <- adjacent rm c, not (isVisited (sSearch visitedState (fst a)))]
+      (newQueue, newState) = relax rm visitedState poppedQueue c adjacentCities
+    in dijkstra rm dest newState newQueue
+
+{- Relax operation in the Dijkstra algorithm (RoadMap, State, PriorityQueue, Source city, Adjacent cities) -> (Updated PriorityQueue, Updated State)
+   Being:
+    - u the city being analyzed;
+    - v the adjacent city;
+    - dist <city> the distance from source;
+    - distance <city> <city> the direct distance between the two cities.
+   If dist v > dist u + distance u v, then update dist v to the new distance and add u to the previous list of v.
+-}
+relax :: RoadMap -> State -> PriorityQueue -> City -> [City] -> (PriorityQueue, State)
+relax _ state queue _ [] = (queue, state)
+relax rm state queue u (v:rest)
+  | distVS >= newDist = relax rm newState newQueue u rest
+  | otherwise = relax rm state queue u rest
+  where
+    us = sSearch state u
+    vs = sSearch state v
+    distVS = dist vs
+    newDist = case distance rm u v of
+      Just d -> dist us + Finite d
+      Nothing -> Infinite
+    newState = sUpdate state (CityState v newDist [u] False)
+    newQueue = pqUpdate queue (newDist, v)
+
+{- Generate all shortest paths between two cities (Destination city, State, Accumulated path) -> [Paths]
+   This auxiliary functions transforms the final state of the Dijkstra algorithm into a list of paths.
+-}
+generatePaths :: City -> State -> Path -> [Path]
+generatePaths c state acc
+  | dist cs == Infinite = []
+  | dist cs == Finite 0 = [c:acc]
+  | otherwise = concat [ generatePaths p state (c:acc) | p <- prev cs]
+  where cs = sSearch state c
+
+-- The function itself
 shortestPath :: RoadMap -> City -> City -> [Path]
-shortestPath [] _ _ = []
-shortestPath _ c1 c2 | c1 == c2 = [[c1]]
-shortestPath rm c1 c2 = undefined -- TODO (Recommended to implement Dijkstra's algorithm)
+shortestPath rm s t = generatePaths t (dijkstra rm t initState initQueue) []
+  where
+    initState = [CityState c (if c == s then 0 else Infinite) [] False | c <- cities rm]
+    initQueue = foldl pqPush [] [(if c == s then 0 else Infinite, c) | c <- cities rm]
+
 
 -----------------------------------------------
 {- Given a roadmap, returns a solution of the Traveling Salesman Problem (TSP): visit each city exactly once and come back to the starting town in the route whose total distance is minimum. Any optimal TSP path will be accepted and the function only needs to return one of them, so the starting city (which is also the ending city) is left to be chosen by each group. If the graph does not have a TSP path, then return an empty list. -}
@@ -165,5 +338,9 @@ gTest2 = [("0", "1", 10), ("0", "2", 15), ("0", "3", 20), ("1", "2", 35), ("1", 
 gTest3 :: RoadMap -- unconnected graph
 gTest3 = [("0", "1", 4), ("2", "3", 2)]
 
-main :: IO ()
+
+gTemp1 :: RoadMap -- various shortest paths between 0 and 3
+gTemp1 = [("0","1",5),("0","2",5),("0","3",10),("1","2",99),("1","3",5),("2","3",5)]
+
+main :: IO()
 main = undefined
