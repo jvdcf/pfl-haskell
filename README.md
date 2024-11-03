@@ -70,7 +70,10 @@ The implementation uses two auxiliary data structures:
 
 ## Implementação de `travelSales`
 
-Dynamic Programming:
+This project uses Dynamic Programming for the TSP. Dynamic programming allows for the reduction of the number of calculations by caching the answer to a substet to the problem.
+This property allows for the reduction of work in comparison to a brute-force implementation, positively affecting the time complexity of the function.
+
+Mathematically, it can be defined as such:
 ```math
 c_{i,\emptyset} = w_{i,n} \quad i \neq n
 ```
@@ -78,6 +81,7 @@ c_{i,\emptyset} = w_{i,n} \quad i \neq n
 c_{i,S} = min_{j \in S} [w_{i,j} + c_{j, S\\{j}}] \quad i \neq n, i \notin S
 ```
 
+A short overview of the relevant functions to the implementation:
 ```
     table(roadMap, lastIndex, mask, path):
         This function represents the dynamic programming table of two dimensions, of size (n-1, 2^n -1), leveraging Haskell's memoization of function calls.
