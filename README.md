@@ -2,7 +2,7 @@
 
 > Functional and Logic Programming (L.EIC024) 2024/2025  
 > Bachelor in Informatics and Computing Engineering  
-> António Mário da Silva Marcos Florido (Regente e professor das aulas práticas)  
+> António Mário da Silva Marcos Florido (Regent and practical classes teacher)  
 
 **Group T02_G08**
 
