@@ -1,37 +1,31 @@
 # TP1: Haskell Coursework
 
-Programação Funcional e em Lógica (L.EIC024) 2024/2025  
-Licenciatura em Engenharia Informática e Computação  
-António Mário da Silva Marcos Florido (Regente e professor das aulas práticas)
+> Functional and Logic Programming (L.EIC024) 2024/2025  
+> Bachelor in Informatics and Computing Engineering  
+> António Mário da Silva Marcos Florido (Regente e professor das aulas práticas)  
 
-**Grupo T02_G08**
+**Group T02_G08**
 
 - Guilherme Duarte Silva Matos (up202208755@up.pt)
 - João Vítor da Costa Ferreira (up202208393@up.pt)
 
 ---
 
-[TP1: Haskell Coursework](#tp1-haskell-coursework)
-- [Contribuições do grupo](#contribuições-do-grupo)
-- [Implementação de `shortestPath`](#implementação-de-shortestpath)
-- [Implementação de `travelSales`](#implementação-de-travelsales)
+- [TP1: Haskell Coursework](#tp1-haskell-coursework)
+  - [Group Contributions](#group-contributions)
+  - [`shortestPath` Implementation](#shortestpath-implementation)
+  - [`travelSales` Implementation](#travelsales-implementation)
 
 ---
 
-## Contribuições do grupo
-
-// TODO
-
-> Identification of the group members, contribution of each member (in
-> percentages adding up to 100%) and a brief description the tasks each one
-> performed.
+## Group Contributions
 
 | Member          | %   | Task Assignment                                                                                                                                     |
 | --------------- | --- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Guilherme Matos | 45% | Warning fixing relating to the usage of `head`, streamlining the code, auxiliary functions, `cities`, `rome`, `isStronglyConnected`, `travelSales`  |
 | João Ferreira   | 55% | `adjacent`, `areAdjacent`, `distance`, `pathDistance`, `dijkstra`, priority queue implementation, project testing                                   |
 
-## Implementação de `shortestPath`
+## `shortestPath` Implementation
 
 The `shortestPath` function was implemented using the **Dijkstra's** algorithm to find the shortest path between two cities in a roadmap.
 Below is the pseudocode of the algorithm used in the implementation:
@@ -68,7 +62,7 @@ The implementation uses two auxiliary data structures:
   - A list of the previous nodes to reconstruct the path;
   - If the node was already processed.
 
-## Implementação de `travelSales`
+## `travelSales` Implementation
 
 This project uses Dynamic Programming for the TSP. Dynamic programming allows for the reduction of the number of calculations by caching the answer to a substet to the problem.
 This property allows for the reduction of work in comparison to a brute-force implementation, positively affecting the time complexity of the function.
